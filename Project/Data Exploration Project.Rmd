@@ -1,0 +1,133 @@
+---
+title: "Data Exploration Project"
+author: "Samuel W. Suk"
+date: "2/23/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Libraries
+```{r}
+library(ggplot2)
+library(ggalt)
+library(ggpubr)
+library(fixest)
+library(wooldridge)
+library(multcomp)
+library(vtable)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(jtools)
+library(readr)
+library(tidyverse)
+library(Ecdat)
+library(fs)
+library(car)
+library(vtable)
+library(ggforce)
+library(DT)
+library(readxl)
+
+```
+
+## Research Question
+
+  The College Scorecard was released at the start of September 2015. Among colleges that predominantly grant bachelor’s degrees, did the release of the Scorecard shift student interest to high-earnings colleges relative to low-earnings ones (as proxies by Google searches for keywords associated with those colleges)?
+  
+  I will also be using the data that I cleaned and processed into two different csv files that I will load into the markdown. The two files are the observations that are split into two different files due to the differences in income based on the schools. By looking at the average american household income being $65,712, I chose to divide my cleaned data by making schools earning more than $60,000 to $110,000 the higher earnings, and the lower was based on the mean and median that I took on the data, so I set the lower section from $25,000 to $45,000. 
+
+ 
+```{r}
+high <- read_csv("high_dataclean.csv")
+
+low <- read_csv("low_dataclean.csv")
+
+head(high)
+
+head(low)
+
+```
+
+## Scaling of Index values
+
+```{r}
+high$index_scaled <- scale(high$index)
+low$index_scaled <- scale(low$index)
+
+```
+
+##With the data broken into two different sections, I resulted in having two different models based on the two different income levels. By regressing my after scorecard value on my index after scaling, I will try to find the relationship between the two before and after September 2015 based on the Google searches for colleges. 
+
+##Within Model 1, we see that its sits around 0.0237, and after the score cards are released, the amount of searches decrease by 0.1256. However, we see a simlar trend occur for Model 2 as well. However, the baseline is lower at 0.0223 and decreases less in response to the scorecards. This results in a .0077 net difference. 
+```{r}
+highscore <- lm(index_scaled ~ afterSC, data= high)
+
+lowscore <- lm(index_scaled ~ afterSC, data=low)
+
+export_summs(highscore, lowscore, digits= 4)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+##After seeing the results from the first regression, I decided to add the control of Cities, however, there were not enough layovers, to compare the results so I moved on to control for states. 
+```{r}
+highscore2 <- lm(index_scaled ~ afterSC + CITY, data= high)
+
+lowscore2 <- lm(index_scaled ~ afterSC + CITY, data = low)
+
+
+export_summs(highscore2, lowscore2, digits= 4)
+
+```
+
+
+##By controlling for states, I realized that the coefficient change after the scorecards were released, resulted in very minute changes. They both changes by 0.0001. Thus not resulting in a significiant change.  
+```{r}
+highscore3 <- lm(index_scaled ~ afterSC + STABBR, data= high)
+
+lowscore3 <- lm(index_scaled ~ afterSC + STABBR, data = low)
+
+
+export_summs(highscore3, lowscore3, digits= 4)
+
+```
+##Here I double checked my first regression to help me understand the relationship between before and after the scorecard. We can see that just as in the first regression, both the intercept and the change after the scorecard was introduced was negligible.
+```{r}
+t.test(index_scaled~ afterSC, data=high, var.equal= TRUE)
+
+t.test(index_scaled~ afterSC, data=low, var.equal= TRUE)
+```
+
+```{r}
+highgroup <- high %>%
+  group_by(date) %>%
+  summarise_at(vars(index_scaled), dplyr::funs(mean(.,na.rm=TRUE)))
+
+lowgroup <- low %>%
+  group_by(date) %>%
+  summarise_at(vars(index_scaled), dplyr::funs(mean(.,na.rm=TRUE)))
+```
+##By plotting the scaled index against the date, we can recognize a negative correlation between the two as searches are made over time. At the introduction of the scorecards( September 2015) There is a noticabley steeper dropoff. The Lower group(red) takes much steeper drop-offs and reactions, whereas the High group(green) is not impacted as much. We can see the difference displayed by the difference in the first regression. 
+```{r}
+visualization <- ggplot(NULL, aes(date, index_scaled)) +
+  geom_line(data = highgroup, col = "green") +
+  geom_line(data = lowgroup, col = "red") + 
+  geom_vline(xintercept = 2015, size = 1)
+visualization
+```
+
+##Conclusion
+
+## Research Question
+
+  The College Scorecard was released at the start of September 2015. Among colleges that predominantly grant bachelor’s degrees, did the release of the Scorecard shift student interest to high-earnings colleges relative to low-earnings ones (as proxies by Google searches for keywords associated with those colleges)?
+  
+  In terms of answering the research question, I believe that this markdown provides the appropriate analysis to respond. The analyses describe the differences in the interest, recorded by Google searches, for high and low earning colleges, before and after the implementation of the scorecard. A majority of the colleges provide bachelors degrees and are 4 year colleges. 
+  From the analysis, the impact of the scorecards release did record a difference, however, it did not make a statistically significant impact that would have disrupted the searches for certain schools. After issuing certain controls based on cities, and states, there was not a large difference found. 
+  
